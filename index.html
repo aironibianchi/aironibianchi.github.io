@@ -50,6 +50,11 @@ body.open #bd,body.open #sh{display:block}
 .sz{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:88px;margin:0;background:#262626;border:2px solid var(--ln);font-weight:400}
 .sz.gf{border-color:var(--wn)}.szn{font-size:21px;font-weight:800}.szc{font-size:13px}.sst{font-size:11px;color:var(--mu)}
 button:disabled{opacity:.4}summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}details[open] summary{margin-bottom:6px}
+.pos{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.pos .card{margin:0;padding:10px 12px}.pos .szs{grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px;margin-top:6px}.pos .sz{min-height:74px}
+.posbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;padding:10px 14px}.posbar .bn{font-size:18px}
+.postools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:10px}
+body.wide #app{max-width:1400px}
 .err{color:#fca5a5;min-height:22px;font-size:14px}
 ul.sl{list-style:none;padding:0;margin:6px 0}ul.sl li{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--ln)}
 </style>
@@ -251,11 +256,10 @@ const salesOf=dt=>(S.sales.find(x=>x.id==dt)||{}).c||{};
 function vSell(){
  const dt=night(),c=salesOf(dt),g=S.gigs.find(x=>x.date==dt);let pcs=0,tot=0,gf=0;
  Object.values(c).forEach(r=>{pcs+=r.sold||0;gf+=r.gift||0;tot+=r.eur||0});
- let h=`<div class="hero"><span class="mu">Banchetto · serata del</span><div class="bn" style="font-size:20px">${fd(dt)}</div>${g?`<div>${E(g.place)}</div>`:""}<div style="margin-top:6px"><b>${pcs}</b> venduti · <b>${eur(tot)}</b>${gf?` · ${gf} omaggi`:""}</div></div>`;
- h+=`<div class="row" style="align-items:center;margin-bottom:8px"><label class="ck" style="margin:0"><input type="checkbox" ${gift?"checked":""} onchange="gift=this.checked;render()"> Omaggio (non incassato)</label><button class="g" ${lastSale?"":"disabled"} onclick="undoSale()">↶ Annulla ultima</button></div>`;
- if(gift)h+=`<p class="wn" style="margin:0 0 8px">Modalità omaggio attiva: i tocchi registrano pezzi regalati.</p>`;
- if(!S.merch.length)return h+`<p class="mu">Nessun articolo. ${seller()?"Chiedi alla band di inserirli.":"Aggiungili nella scheda Articoli."}</p>`;
- return h+items().map(it=>`<div class="card"><b>${E(it.name)} <span class="mu">${eur(it.price)}</span></b><div class="szs">${sizesOf(it).map((sz,i)=>{const r=c[it.id+"_"+szKey(sz)]||{},st=(it.stock||{})[szKey(sz)]??0;return`<button class="sz ${gift?"gf":""}" onclick="sell('${it.id}',${i})"><span class="szn">${E(sz)}</span><span class="szc">${r.sold||0} venduti${r.gift?` · ${r.gift} omaggi`:""}</span><span class="sst ${st<=0?"wn":""}">scorta ${st}</span></button>`}).join("")}</div></div>`).join("");
+ let h=`<div class="hero posbar"><span class="bn">${sd(dt)}${g?" · "+E(g.place):""}</span><span><b>${pcs}</b> venduti · <b>${eur(tot)}</b>${gf?` · ${gf} omaggi`:""}</span></div>`;
+ h+=`<div class="postools"><label class="ck" style="margin:0"><input type="checkbox" ${gift?"checked":""} onchange="gift=this.checked;render()"> Omaggio (non incassato)</label><button class="g" style="margin:0" ${lastSale?"":"disabled"} onclick="undoSale()">↶ Annulla ultima</button>${gift?`<span class="wn">Modalità omaggio attiva</span>`:""}</div>`;
+  if(!S.merch.length)return h+`<p class="mu">Nessun articolo. ${seller()?"Chiedi alla band di inserirli.":"Aggiungili nella scheda Articoli."}</p>`;
+ return h+`<div class="pos">`+items().map(it=>`<div class="card"><b>${E(it.name)} <span class="mu">${eur(it.price)}</span></b><div class="szs">${sizesOf(it).map((sz,i)=>{const r=c[it.id+"_"+szKey(sz)]||{},st=(it.stock||{})[szKey(sz)]??0;return`<button class="sz ${gift?"gf":""}" onclick="sell('${it.id}',${i})"><span class="szn">${E(sz)}</span><span class="szc"><b>${r.sold||0}</b>${r.gift?` +${r.gift} omag.`:""}</span><span class="sst ${st<=0?"wn":""}">scorta ${st}</span></button>`}).join("")}</div></div>`).join("")+`</div>`;
 }
 async function sell(id,i){
  const it=S.merch.find(x=>x.id==id);if(!it)return;const sz=sizesOf(it)[i],dt=night(),k=id+"_"+szKey(sz),g=gift,price=+it.price||0;
@@ -277,7 +281,7 @@ let _st={};
 function itemSheet(id){
  const x=S.merch.find(m=>m.id==id)||{};_st={...(x.stock||{})};
  openSheet(`<h2>${id?"Modifica articolo":"Nuovo articolo"}</h2><label>Nome<input id="in" value="${E(x.name)}" placeholder="es. Maglietta"></label><label>Prezzo (€)<input id="ip" inputmode="decimal" value="${E(x.price??"")}"></label>
- <label>Taglie separate da virgola (vuoto = taglia unica)<input id="iz" value="${E((x.sizes||[]).join(", "))}" placeholder="es. S, M, L, XL" oninput="qtyFields()"></label>
+ <label>Taglie: tutte in questo articolo, separate da virgola (vuoto = taglia unica)<input id="iz" value="${E((x.sizes||[]).join(", "))}" placeholder="es. S, M, L, XL" oninput="qtyFields()"></label>
  <b style="display:block;margin-top:6px">Pezzi disponibili</b><div id="iq"></div>
  <button onclick="saveItem('${id||""}')">Salva</button>${id?`<button class="g" onclick="del('merch','${id}','Eliminare questo articolo?')">Elimina</button>`:""}`);
  qtyFields();
@@ -293,11 +297,12 @@ function saveItem(id){
  document.querySelectorAll("#iq input").forEach(i=>stock[i.dataset.k]=parseInt(i.value,10)||0);
  const o={...old,id:id||uid(),name:v("in"),price:+v("ip").replace(",",".")||0,sizes:parseSizes(),stock};
  if(!o.name)return alert("Serve un nome.");
+ if(S.merch.some(m=>m.id!=o.id&&(m.name||"").trim().toLowerCase()==o.name.toLowerCase())&&!confirm(`Esiste già un articolo «${o.name}». Le taglie vanno inserite nello stesso articolo, separate da virgola. Salvare comunque un secondo articolo?`))return;
  save("merch",o);
 }
 function vReport(){
  const byId={};S.merch.forEach(m=>byId[m.id]=m);let T={p:0,e:0,g:0};
- const body=S.sales.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{
+ const body=S.sales.filter(r=>Object.values(r.c||{}).some(x=>(x.sold||0)||(x.gift||0))).sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{
   let p=0,e=0,gg=0;
   const det=Object.entries(r.c||{}).filter(([,x])=>(x.sold||0)||(x.gift||0)).map(([k,x])=>{
    p+=x.sold||0;e+=x.eur||0;gg+=x.gift||0;const iid=k.split("_")[0],szk=k.slice(iid.length+1),it=byId[iid];
@@ -316,6 +321,7 @@ function go(t){tab=t;render();scrollTo(0,0)}
 function add(){({date:()=>gigSheet(),rep:()=>songSheet(),merch:()=>mt=="articoli"&&itemSheet()})[tab]?.()}
 function render(){
  if(sheetOpen){pend=true;return}pend=false;
+ document.body.classList.toggle("wide",seller()||(tab=="merch"&&mt=="vendita"));
  if(seller()){$("#nav").innerHTML="";$("#fab").style.display="none";$("#app").innerHTML=`<div class="hd"><img src="${LOGO}" alt=""><div><div class="bn">Banchetto</div><span class="mu">Aironi Bianchi</span></div></div>`+vSell()+`<button class="g" onclick="firebase.auth().signOut()">Esci</button><p class="mu">Accesso come venditore: <b>${E(me.name)}</b></p>`;return}
  $("#nav").innerHTML=TABS.map(([k,n])=>`<button class="${k==tab?"on":""}" onclick="go('${k}')">${n}</button>`).join("");
  $("#fab").style.display=me&&(tab=="date"||tab=="rep"||(tab=="merch"&&mt=="articoli"))?"block":"none";
