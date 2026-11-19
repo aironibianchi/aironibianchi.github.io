@@ -45,6 +45,7 @@ body.open #bd,body.open #sh{display:block}
 #ts.on{transform:translate(-50%,0)}
 .login{max-width:360px;margin:0 auto;text-align:center;padding-top:24px}.login img{width:170px;height:170px;display:block;margin:0 auto 10px}
 .login input{text-align:left}
+.ac{color:#f87171!important;border-color:#f87171!important}
 .err{color:#fca5a5;min-height:22px;font-size:14px}
 ul.sl{list-style:none;padding:0;margin:6px 0}ul.sl li{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--ln)}
 </style>
@@ -90,7 +91,7 @@ let db,admin=false,me=null,tab="home",S={gigs:[],songs:[],users:[]},sel=null,SL=
 const gigs=()=>S.gigs.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));
 const songs=()=>S.songs.slice().sort((a,b)=>(a.title||"").localeCompare(b.title||"","it"));
 function toast(m){const t=$("#ts");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),2000)}
-async function save(col,o,msg){try{await db.collection(col).doc(o.id).set(o);closeSheet();toast(msg||"Salvato ✓")}catch(e){alert("Non salvato: "+(e.message||e))}}
+async function save(col,o,msg){o.by=me?.name||"";try{await db.collection(col).doc(o.id).set(o);closeSheet();toast(msg||"Salvato ✓")}catch(e){alert("Non salvato: "+(e.message||e))}}
 async function del(col,id,q){if(!confirm(q))return;try{await db.collection(col).doc(id).delete();closeSheet();toast("Eliminato")}catch(e){alert("Non eliminato: "+(e.message||e))}}
 function openSheet(h){$("#sh").innerHTML=`<button class="g s" style="float:right;margin:0" onclick="closeSheet()" aria-label="Chiudi">✕ Chiudi</button>`+h;sheetOpen=true;document.body.classList.add("open")}
 function closeSheet(){sheetOpen=false;document.body.classList.remove("open");if(pend)render()}
@@ -119,8 +120,8 @@ function vDate(){
  <span class="mu">Soundcheck ${E(x.sound||"–")} · Inizio ${E(x.start||"–")}</span><br>
  <span class="tag">${E(x.type)}</span><span class="tag ${x.status=="Confermata"?"ok":"wn"}">${E(x.status)}</span><span class="tag ${x.signed?"ok":"wn"}">${x.signed?"Contratto firmato":"Contratto da firmare"}</span>
  ${x.contract?`<div style="margin-top:8px"><a href="${E(x.contract)}" target="_blank" rel="noopener">📄 Apri il contratto</a></div>`:""}
- ${x.notes?`<div class="mu" style="margin-top:6px">${E(x.notes)}</div>`:""}
- ${admin?`<div><button class="g s" onclick="gigSheet('${x.id}')">Modifica</button></div>`:""}</div>`).join("");
+ ${x.notes?`<div class="mu" style="margin-top:6px">${E(x.notes)}</div>`:""}${x.by?`<div class="mu" style="font-size:12px;margin-top:4px">Ultima modifica: ${E(x.by)}</div>`:""}
+ ${me?`<div><button class="g s" onclick="gigSheet('${x.id}')">Modifica</button></div>`:""}</div>`).join("");
 }
 function gigSheet(id){
  const x=S.gigs.find(g=>g.id==id)||{status:"Da confermare",type:"Locale"};
@@ -145,24 +146,24 @@ function saveGig(id){
 /* ---------- BRANI ---------- */
 function vRep(){
  const s=songs();
- return `<p class="mu">${s.length} brani</p>`+s.map(x=>`<div class="card"><b>${E(x.title)}</b>${x.notes?`<span class="mu">${E(x.notes)}</span>`:""}${admin?`<div><button class="g s" onclick="songSheet('${x.id}')">Modifica</button></div>`:""}</div>`).join("");
+ return `<p class="mu">${s.length} brani</p>`+s.map(x=>`<div class="card"><b class="${x.guitar=="acustica"?"ac":""}">${E(x.title)}</b><span class="tag ${x.guitar=="acustica"?"ac":""}">${x.guitar=="acustica"?"Acustica":"Elettrica"}</span>${x.notes?`<div class="mu">${E(x.notes)}</div>`:""}${me?`<div><button class="g s" onclick="songSheet('${x.id}')">Modifica</button></div>`:""}</div>`).join("");
 }
 function songSheet(id){
  const x=S.songs.find(s=>s.id==id)||{};
- openSheet(`<h2>${id?"Modifica brano":"Nuovo brano"}</h2><label>Titolo<input id="ti" value="${E(x.title)}"></label><label>Note (intro, arrangiamento…)<input id="no" value="${E(x.notes)}"></label>
+ openSheet(`<h2>${id?"Modifica brano":"Nuovo brano"}</h2><label>Titolo<input id="ti" value="${E(x.title)}"></label><label>Chitarra<select id="gt">${opts(["Elettrica","Acustica"],x.guitar=="acustica"?"Acustica":"Elettrica")}</select></label><label>Note (intro, arrangiamento…)<input id="no" value="${E(x.notes)}"></label>
  <button onclick="saveSong('${id||""}')">Salva</button>${id?`<button class="g" onclick="del('songs','${id}','Eliminare questo brano?')">Elimina</button>`:""}`);
 }
-function saveSong(id){const o={id:id||uid(),title:v("ti"),notes:v("no")};if(!o.title)return alert("Serve un titolo.");save("songs",o)}
+function saveSong(id){const o={id:id||uid(),title:v("ti"),guitar:v("gt").toLowerCase(),notes:v("no")};if(!o.title)return alert("Serve un titolo.");save("songs",o)}
 
 /* ---------- SCALETTA ---------- */
 function vSet(){
  const g=S.gigs.find(x=>x.id==sel);
  let h=`<label>Data<select onchange="pick(this.value)"><option value="">Scegli una data…</option>${gigs().map(x=>`<option value="${x.id}" ${x.id==sel?"selected":""}>${E(x.place)} · ${sd(x.date)}</option>`).join("")}</select></label>`;
  if(!g)return h+`<p class="mu">Scegli una data per vedere o preparare la scaletta.</p>`;
- const m=Object.fromEntries(S.songs.map(s=>[s.id,s.title]));let n=0;
- h+=`<div class="card"><b>Scaletta · ${E(g.place)}</b>${SL.length?"":`<p class="mu">Ancora vuota.</p>`}<ul class="sl">${SL.map((i,k)=>{const lab=i=="|"?`<i class="mu">— pausa / nuovo set —</i>`:`${++n}. ${E(m[i]||"(brano eliminato)")}`;if(i=="|")n=0;return`<li><span>${lab}</span>${admin?`<span><button class="g s" onclick="mv(${k},-1)">↑</button><button class="g s" onclick="mv(${k},1)">↓</button><button class="g s" onclick="SL.splice(${k},1);render()">✕</button></span>`:""}</li>`}).join("")}</ul>
- <div class="row"><select id="fmt"><option value="a4">A4 verticale</option><option value="a3">A3 verticale</option></select><button onclick="pdf()">Crea PDF</button></div>${admin?`<button class="g" onclick="saveSet()">Salva scaletta</button>`:""}</div>`;
- if(admin)h+=`<div class="card"><b>Aggiungi</b><button class="g s" onclick="SL.push('|');render()">+ Pausa / nuovo set</button>${songs().filter(s=>!SL.includes(s.id)).map(s=>`<button class="g s" onclick="SL.push('${s.id}');render()">+ ${E(s.title)}</button>`).join("")||`<p class="mu">Aggiungi i brani nella sezione Brani.</p>`}</div>`;
+ const m=Object.fromEntries(S.songs.map(s=>[s.id,s]));let n=0;
+ h+=`<div class="card"><b>Scaletta · ${E(g.place)}</b><span class="mu">In rosso i brani in acustica</span>${SL.length?"":`<p class="mu">Ancora vuota.</p>`}<ul class="sl">${SL.map((i,k)=>{const lab=i=="|"?`<i class="mu">— pausa / nuovo set —</i>`:`<span class="${m[i]?.guitar=="acustica"?"ac":""}">${++n}. ${E(m[i]?.title||"(brano eliminato)")}</span>`;if(i=="|")n=0;return`<li><span>${lab}</span>${me?`<span><button class="g s" onclick="mv(${k},-1)">↑</button><button class="g s" onclick="mv(${k},1)">↓</button><button class="g s" onclick="SL.splice(${k},1);render()">✕</button></span>`:""}</li>`}).join("")}</ul>
+ <div class="row"><select id="fmt"><option value="a4">A4 verticale</option><option value="a3">A3 verticale</option></select><button onclick="pdf()">Crea PDF</button></div>${me?`<button class="g" onclick="saveSet()">Salva scaletta</button>`:""}</div>`;
+ if(me)h+=`<div class="card"><b>Aggiungi</b><button class="g s" onclick="SL.push('|');render()">+ Pausa / nuovo set</button>${songs().filter(s=>!SL.includes(s.id)).map(s=>`<button class="g s ${s.guitar=="acustica"?"ac":""}" onclick="SL.push('${s.id}');render()">+ ${E(s.title)}</button>`).join("")||`<p class="mu">Aggiungi i brani nella sezione Brani.</p>`}</div>`;
  return h;
 }
 function pick(id){sel=id||null;SL=((S.gigs.find(x=>x.id==sel)||{}).setlist||[]).slice();render()}
@@ -170,16 +171,16 @@ function mv(k,d){const j=k+d;if(j<0||j>=SL.length)return;[SL[k],SL[j]]=[SL[j],SL
 function saveSet(){const g=S.gigs.find(x=>x.id==sel);if(g)save("gigs",{...g,setlist:SL},"Scaletta salvata ✓")}
 async function pdf(){
  if(!window.jspdf)return alert("Serve la connessione per creare il PDF.");
- const g=S.gigs.find(x=>x.id==sel),m=Object.fromEntries(S.songs.map(s=>[s.id,s.title])),f=$("#fmt").value,L=[];let set=1,n=0;
+ const g=S.gigs.find(x=>x.id==sel),m=Object.fromEntries(S.songs.map(s=>[s.id,s])),f=$("#fmt").value,L=[];let set=1,n=0;
  if(SL.includes("|"))L.push({h:"SET 1"});
- SL.forEach(i=>{if(i=="|"){set++;n=0;L.push({h:"SET "+set})}else if(m[i])L.push({t:`${++n}. ${m[i]}`})});
+ SL.forEach(i=>{if(i=="|"){set++;n=0;L.push({h:"SET "+set})}else if(m[i])L.push({t:`${++n}. ${m[i].title}`,ac:m[i].guitar=="acustica"})});
  if(!L.some(x=>x.t))return alert("La scaletta è vuota.");
  const d=new jspdf.jsPDF({orientation:"portrait",unit:"mm",format:f}),w=d.internal.pageSize.getWidth(),H=d.internal.pageSize.getHeight(),k=f=="a3"?1.414:1;
  d.setFillColor(11,11,11);d.rect(0,0,w,38*k,"F");d.addImage(LOGO,"JPEG",(w-32*k)/2,3*k,32*k,32*k);
- d.setFont("helvetica","bold");d.setFontSize(30*k);d.text(g.place,w/2,54*k,{align:"center",maxWidth:w-30*k});
+ d.setTextColor(0,0,0);d.setFont("helvetica","bold");d.setFontSize(30*k);d.text(g.place,w/2,54*k,{align:"center",maxWidth:w-30*k});
  d.setFont("helvetica","normal");d.setFontSize(16*k);d.text(fd(g.date),w/2,64*k,{align:"center"});
  const top=78*k,lh=Math.min(15*k,(H-top-10*k)/L.length),fs=Math.min(28*k,lh/0.5);
- L.forEach((x,j)=>{const y=top+j*lh;if(x.h){d.setFont("helvetica","normal");d.setFontSize(fs*.6);d.setTextColor(180,20,20);d.text(x.h,18*k,y);d.setTextColor(0,0,0)}else{d.setFont("helvetica","bold");d.setFontSize(fs);d.text(x.t,18*k,y,{maxWidth:w-36*k})}});
+ L.forEach((x,j)=>{const y=top+j*lh;if(x.h){d.setFont("helvetica","normal");d.setFontSize(fs*.6);d.setTextColor(120,120,120);d.text(x.h,18*k,y)}else{d.setFont("helvetica","bold");d.setFontSize(fs);x.ac?d.setTextColor(200,0,0):d.setTextColor(0,0,0);d.text(x.t,18*k,y,{maxWidth:w-36*k})}});
  const name=`Scaletta ${g.place} ${g.date}.pdf`.replace(/[\\/:*?"<>|]/g,""),bl=d.output("blob");
  try{const fi=new File([bl],name,{type:"application/pdf"});if(navigator.canShare&&navigator.canShare({files:[fi]})){await navigator.share({files:[fi],title:name});return}}catch(e){if(e.name=="AbortError")return}
  const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000);toast("PDF scaricato");
@@ -193,7 +194,7 @@ function vCas(){
  return h+g.map(x=>`<div class="card"><b>${E(x.place)}</b><span class="mu">${sd(x.date)}</span>
  <div class="rw"><span>Lordo</span><span>${eur(x.fee)}</span></div><div class="rw"><span>Costi</span><span>${eur(costs(x))}</span></div>
  <div class="rw"><b>Netto · a testa (${MEMBRI})</b><b>${eur(net(x))} · ${eur(net(x)/MEMBRI)}</b></div>
- <span class="tag ${x.paid?"ok":"wn"}">${x.paid?"Pagato":"Da incassare"}</span>${admin?`<div><button class="g s" onclick="casSheet('${x.id}')">Modifica cachet</button></div>`:""}</div>`).join("");
+ <span class="tag ${x.paid?"ok":"wn"}">${x.paid?"Pagato":"Da incassare"}</span>${me?`<div><button class="g s" onclick="casSheet('${x.id}')">Modifica cachet</button></div>`:""}</div>`).join("");
 }
 function casSheet(id){
  const x=S.gigs.find(g=>g.id==id),num=(i,l,k)=>`<label>${l} (€)<input id="${i}" type="text" inputmode="decimal" placeholder="0" value="${E(x[k]??"")}"></label>`;
@@ -205,7 +206,7 @@ function saveCas(id){const x=S.gigs.find(g=>g.id==id),n=i=>+v(i).replace(",","."
 /* ---------- UTENTI ---------- */
 const mail=u=>u.toLowerCase()+"@"+DOM;
 function usersSheet(){
- openSheet(`<h2>Utenti</h2><p class="mu">Gli utenti vedono tutto ma non possono modificare. Solo tu modifichi.</p>
+ openSheet(`<h2>Utenti</h2><p class="mu">Gli utenti possono inserire, modificare ed eliminare date, brani, scalette e cachet. Solo tu gestisci gli utenti.</p>
  ${S.users.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>`<div class="rw"><span>${E(u.username)}</span><button class="g s" onclick="delUser('${u.id}','${E(u.username)}')">Togli accesso</button></div>`).join("")||`<p class="mu">Nessun utente.</p>`}
  <h2 style="margin-top:16px">Nuovo utente</h2><label>Nome utente<input id="nu" autocapitalize="none" autocomplete="off" placeholder="es. marco"></label><label>Password (almeno 6 caratteri)<input id="np" type="text" autocomplete="off"></label>
  <div class="err" id="ue"></div><button onclick="addUser()">Crea utente</button>`);
@@ -239,9 +240,9 @@ function add(){({date:()=>gigSheet(),rep:()=>songSheet()})[tab]?.()}
 function render(){
  if(sheetOpen){pend=true;return}pend=false;
  $("#nav").innerHTML=TABS.map(([k,n])=>`<button class="${k==tab?"on":""}" onclick="go('${k}')">${n}</button>`).join("");
- $("#fab").style.display=admin&&(tab=="date"||tab=="rep")?"block":"none";
+ $("#fab").style.display=me&&(tab=="date"||tab=="rep")?"block":"none";
  const f={home:vHome,date:vDate,set:vSet,rep:vRep,cas:vCas}[tab];
- $("#app").innerHTML=(tab=="home"?"":`<h1>${TABS.find(t=>t[0]==tab)[1]}</h1>`)+f()+(admin||tab=="home"?"":`<p class="mu">Sola lettura</p>`);
+ $("#app").innerHTML=(tab=="home"?"":`<h1>${TABS.find(t=>t[0]==tab)[1]}</h1>`)+f();
 }
 
 /* ---------- ACCESSO ---------- */
