@@ -34,7 +34,7 @@ a{color:#f87171}
 .seg button{margin:0;background:var(--cd);border:1px solid var(--ln);color:var(--mu);border-radius:99px;min-height:36px;padding:6px 14px;font-weight:400;white-space:nowrap}
 .seg button.on{background:var(--ac);border-color:var(--ac);color:#fff}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--cd);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
-nav button{flex:1;margin:0;border-radius:0;background:transparent;color:var(--mu);font-size:12px;font-weight:400;padding:14px 2px}
+nav button{flex:1;margin:0;border-radius:0;background:transparent;color:var(--mu);font-size:12px;font-weight:400;padding:14px 0}
 nav button.on{color:var(--ac);font-weight:700}
 .fab{position:fixed;right:16px;bottom:calc(78px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;font-size:30px;padding:0;margin:0;z-index:6;box-shadow:0 6px 20px #000a;display:none}
 #bd{display:none;position:fixed;inset:0;background:#000b;z-index:20}
@@ -46,6 +46,10 @@ body.open #bd,body.open #sh{display:block}
 .login{max-width:360px;margin:0 auto;text-align:center;padding-top:24px}.login img{width:170px;height:170px;display:block;margin:0 auto 10px}
 .login input{text-align:left}
 .ac{color:#f87171!important;border-color:#f87171!important}
+.szs{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:8px}
+.sz{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:88px;margin:0;background:#262626;border:2px solid var(--ln);font-weight:400}
+.sz.gf{border-color:var(--wn)}.szn{font-size:21px;font-weight:800}.szc{font-size:13px}.sst{font-size:11px;color:var(--mu)}
+button:disabled{opacity:.4}summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}details[open] summary{margin-bottom:6px}
 .err{color:#fca5a5;min-height:22px;font-size:14px}
 ul.sl{list-style:none;padding:0;margin:6px 0}ul.sl li{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--ln)}
 </style>
@@ -84,10 +88,10 @@ const fd=d=>d?new Date(d+"T12:00").toLocaleDateString("it-IT",{weekday:"short",d
 const sd=d=>d?new Date(d+"T12:00").toLocaleDateString("it-IT",{day:"numeric",month:"short"}):"";
 const opts=(l,c)=>l.map(o=>`<option ${o==c?"selected":""}>${E(o)}</option>`).join("");
 const TIPI=["Altro","Cena di Natale","Cena di Pasqua","Data zero","Festival","Locale","Matrimonio","Privato","Sagra"];
-const TABS=[["home","Home"],["date","Date"],["set","Scaletta"],["rep","Brani"],["cas","Cachet"]];
+const TABS=[["home","Home"],["date","Date"],["set","Scaletta"],["rep","Brani"],["cas","Cachet"],["merch","Merch"]];
 const costs=g=>["mgr","sal","sa","sl"].reduce((a,k)=>a+(+g[k]||0),0),net=g=>(+g.fee||0)-costs(g);
 
-let db,admin=false,me=null,tab="home",S={gigs:[],songs:[],users:[]},sel=null,SL=[],fl="Tutte",sheetOpen=false,pend=false,UNS=[];
+let db,admin=false,me=null,tab="home",S={gigs:[],songs:[],users:[],merch:[],sales:[]},sel=null,SL=[],fl="Tutte",sheetOpen=false,pend=false,UNS=[];
 const gigs=()=>S.gigs.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));
 const songs=()=>S.songs.slice().sort((a,b)=>(a.title||"").localeCompare(b.title||"","it"));
 function toast(m){const t=$("#ts");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),2000)}
@@ -206,9 +210,9 @@ function saveCas(id){const x=S.gigs.find(g=>g.id==id),n=i=>+v(i).replace(",","."
 /* ---------- UTENTI ---------- */
 const mail=u=>u.toLowerCase()+"@"+DOM;
 function usersSheet(){
- openSheet(`<h2>Utenti</h2><p class="mu">Gli utenti possono inserire, modificare ed eliminare date, brani, scalette e cachet. Solo tu gestisci gli utenti.</p>
- ${S.users.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>`<div class="rw"><span>${E(u.username)}</span><button class="g s" onclick="delUser('${u.id}','${E(u.username)}')">Togli accesso</button></div>`).join("")||`<p class="mu">Nessun utente.</p>`}
- <h2 style="margin-top:16px">Nuovo utente</h2><label>Nome utente<input id="nu" autocapitalize="none" autocomplete="off" placeholder="es. marco"></label><label>Password (almeno 6 caratteri)<input id="np" type="text" autocomplete="off"></label>
+ openSheet(`<h2>Utenti</h2><p class="mu"><b>Membro</b>: inserisce, modifica ed elimina date, brani, scalette, cachet e merchandising. <b>Venditore</b>: vede solo la pagina di vendita del banchetto. Solo tu gestisci gli utenti.</p>
+ ${S.users.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>`<div class="rw"><span>${E(u.username)} <span class="tag">${u.role=="venditore"?"Venditore":"Membro"}</span></span><button class="g s" onclick="delUser('${u.id}','${E(u.username)}')">Togli accesso</button></div>`).join("")||`<p class="mu">Nessun utente.</p>`}
+ <h2 style="margin-top:16px">Nuovo utente</h2><label>Nome utente<input id="nu" autocapitalize="none" autocomplete="off" placeholder="es. marco"></label><label>Password (almeno 6 caratteri)<input id="np" type="text" autocomplete="off"></label><label>Ruolo<select id="nr"><option value="membro">Membro della band</option><option value="venditore">Venditore (solo banchetto)</option></select></label>
  <div class="err" id="ue"></div><button onclick="addUser()">Crea utente</button>`);
 }
 async function addUser(){
@@ -220,8 +224,9 @@ async function addUser(){
   const sec=firebase.apps.find(a=>a.name=="sec")||firebase.initializeApp(firebaseConfig,"sec");
   await sec.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
   const c=await sec.auth().createUserWithEmailAndPassword(mail(u),p);
-  await db.collection("users").doc(c.user.uid).set({id:c.user.uid,username:u});
+  await db.collection("users").doc(c.user.uid).set({id:c.user.uid,username:u,role:v("nr")||"membro"});
   await sec.auth().signOut();
+  if(!S.users.some(x=>x.id==c.user.uid))S.users.push({id:c.user.uid,username:u,role:v("nr")||"membro"});
   toast("Utente creato ✓");usersSheet();
  }catch(e){err(e.code=="auth/email-already-in-use"?"Questo nome utente è già stato usato: scegline un altro.":"Errore: "+(e.message||e))}
 }
@@ -234,20 +239,93 @@ async function chPwd(){
  catch(e){err(e.code=="auth/requires-recent-login"?"Per sicurezza esci, rientra e riprova subito.":"Errore: "+(e.message||e))}
 }
 
+/* ---------- MERCH ---------- */
+let mt="vendita",gift=false,lastSale=null;
+const seller=()=>me?.role=="venditore";
+const szKey=s=>String(s).replace(/[^A-Za-z0-9]/g,"_")||"U";
+const sizesOf=it=>(it.sizes&&it.sizes.length?it.sizes:["Unica"]);
+const night=()=>{const d=new Date();if(d.getHours()<8)d.setDate(d.getDate()-1);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const items=()=>S.merch.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"","it"));
+const inc=n=>firebase.firestore.FieldValue.increment(n);
+const salesOf=dt=>(S.sales.find(x=>x.id==dt)||{}).c||{};
+function vSell(){
+ const dt=night(),c=salesOf(dt),g=S.gigs.find(x=>x.date==dt);let pcs=0,tot=0,gf=0;
+ Object.values(c).forEach(r=>{pcs+=r.sold||0;gf+=r.gift||0;tot+=r.eur||0});
+ let h=`<div class="hero"><span class="mu">Banchetto · serata del</span><div class="bn" style="font-size:20px">${fd(dt)}</div>${g?`<div>${E(g.place)}</div>`:""}<div style="margin-top:6px"><b>${pcs}</b> venduti · <b>${eur(tot)}</b>${gf?` · ${gf} omaggi`:""}</div></div>`;
+ h+=`<div class="row" style="align-items:center;margin-bottom:8px"><label class="ck" style="margin:0"><input type="checkbox" ${gift?"checked":""} onchange="gift=this.checked;render()"> Omaggio (non incassato)</label><button class="g" ${lastSale?"":"disabled"} onclick="undoSale()">↶ Annulla ultima</button></div>`;
+ if(gift)h+=`<p class="wn" style="margin:0 0 8px">Modalità omaggio attiva: i tocchi registrano pezzi regalati.</p>`;
+ if(!S.merch.length)return h+`<p class="mu">Nessun articolo. ${seller()?"Chiedi alla band di inserirli.":"Aggiungili nella scheda Articoli."}</p>`;
+ return h+items().map(it=>`<div class="card"><b>${E(it.name)} <span class="mu">${eur(it.price)}</span></b><div class="szs">${sizesOf(it).map((sz,i)=>{const r=c[it.id+"_"+szKey(sz)]||{},st=(it.stock||{})[szKey(sz)]??0;return`<button class="sz ${gift?"gf":""}" onclick="sell('${it.id}',${i})"><span class="szn">${E(sz)}</span><span class="szc">${r.sold||0} venduti${r.gift?` · ${r.gift} omaggi`:""}</span><span class="sst ${st<=0?"wn":""}">scorta ${st}</span></button>`}).join("")}</div></div>`).join("");
+}
+async function sell(id,i){
+ const it=S.merch.find(x=>x.id==id);if(!it)return;const sz=sizesOf(it)[i],dt=night(),k=id+"_"+szKey(sz),g=gift,price=+it.price||0;
+ const b=db.batch();
+ b.set(db.collection("sales").doc(dt),{date:dt,c:{[k]:g?{gift:inc(1)}:{sold:inc(1),eur:inc(price)}}},{merge:true});
+ b.update(db.collection("merch").doc(id),{["stock."+szKey(sz)]:inc(-1)});
+ try{await b.commit();lastSale={id,k,dt,sz,g,price};if(navigator.vibrate)navigator.vibrate(30);toast((g?"Omaggio: ":"Venduto: ")+it.name+(it.sizes&&it.sizes.length?" "+sz:""));render()}catch(e){alert("Non registrato: "+(e.message||e))}
+}
+async function undoSale(){
+ const l=lastSale;if(!l)return;const b=db.batch();
+ b.set(db.collection("sales").doc(l.dt),{c:{[l.k]:l.g?{gift:inc(-1)}:{sold:inc(-1),eur:inc(-l.price)}}},{merge:true});
+ b.update(db.collection("merch").doc(l.id),{["stock."+szKey(l.sz)]:inc(1)});
+ try{await b.commit();lastSale=null;toast("Ultima operazione annullata");render()}catch(e){alert("Non annullata: "+(e.message||e))}
+}
+function vItems(){
+ return (S.merch.length?"":`<p class="mu">Nessun articolo: tocca + per aggiungerne uno.</p>`)+items().map(it=>`<div class="card"><b>${E(it.name)} · ${eur(it.price)}</b>${sizesOf(it).map(sz=>{const st=(it.stock||{})[szKey(sz)]??0;return`<div class="rw"><span>${E(sz)}</span><span class="${st<=0?"wn":""}">${st} pz</span></div>`}).join("")}<div><button class="g s" onclick="itemSheet('${it.id}')">Modifica e scorte</button></div></div>`).join("");
+}
+let _st={};
+function itemSheet(id){
+ const x=S.merch.find(m=>m.id==id)||{};_st={...(x.stock||{})};
+ openSheet(`<h2>${id?"Modifica articolo":"Nuovo articolo"}</h2><label>Nome<input id="in" value="${E(x.name)}" placeholder="es. Maglietta"></label><label>Prezzo (€)<input id="ip" inputmode="decimal" value="${E(x.price??"")}"></label>
+ <label>Taglie separate da virgola (vuoto = taglia unica)<input id="iz" value="${E((x.sizes||[]).join(", "))}" placeholder="es. S, M, L, XL" oninput="qtyFields()"></label>
+ <b style="display:block;margin-top:6px">Pezzi disponibili</b><div id="iq"></div>
+ <button onclick="saveItem('${id||""}')">Salva</button>${id?`<button class="g" onclick="del('merch','${id}','Eliminare questo articolo?')">Elimina</button>`:""}`);
+ qtyFields();
+}
+const parseSizes=()=>[...new Set(v("iz").split(",").map(s=>s.trim()).filter(Boolean))];
+function qtyFields(){
+ document.querySelectorAll("#iq input").forEach(i=>_st[i.dataset.k]=i.value);
+ const L=parseSizes();
+ $("#iq").innerHTML=(L.length?L:["Unica"]).map(sz=>`<div class="row" style="align-items:center"><span>${E(sz)}</span><input data-k="${szKey(sz)}" inputmode="numeric" value="${E(_st[szKey(sz)]??0)}"></div>`).join("");
+}
+function saveItem(id){
+ const old=S.merch.find(m=>m.id==id)||{},stock={};
+ document.querySelectorAll("#iq input").forEach(i=>stock[i.dataset.k]=parseInt(i.value,10)||0);
+ const o={...old,id:id||uid(),name:v("in"),price:+v("ip").replace(",",".")||0,sizes:parseSizes(),stock};
+ if(!o.name)return alert("Serve un nome.");
+ save("merch",o);
+}
+function vReport(){
+ const byId={};S.merch.forEach(m=>byId[m.id]=m);let T={p:0,e:0,g:0};
+ const body=S.sales.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{
+  let p=0,e=0,gg=0;
+  const det=Object.entries(r.c||{}).filter(([,x])=>(x.sold||0)||(x.gift||0)).map(([k,x])=>{
+   p+=x.sold||0;e+=x.eur||0;gg+=x.gift||0;const iid=k.split("_")[0],szk=k.slice(iid.length+1),it=byId[iid];
+   const sz=it&&it.sizes&&it.sizes.length?" "+(it.sizes.find(s=>szKey(s)==szk)||szk):"";
+   return`<div class="rw"><span>${E(it?it.name:"(articolo eliminato)")}${E(sz)}</span><span>${x.sold||0}${x.gift?` · ${x.gift} omaggi`:""}</span></div>`}).join("");
+  T.p+=p;T.e+=e;T.g+=gg;const g=S.gigs.find(x=>x.date==r.id);
+  return`<details class="card"><summary><b style="display:inline">${E(g?g.place:"Serata")}</b> <span class="mu">${sd(r.id)}</span><br>${p} venduti · ${eur(e)}${gg?` · ${gg} omaggi`:""}</summary>${det||`<p class="mu">Nessuna vendita.</p>`}</details>`}).join("");
+ return`<div class="card"><b>Totale merchandising</b>${T.p} pezzi venduti · <b>${eur(T.e)}</b>${T.g?` · ${T.g} omaggi`:""}</div>`+(body||`<p class="mu">Nessuna vendita registrata.</p>`);
+}
+function vMerch(){
+ return`<div class="seg">${[["vendita","Vendita"],["articoli","Articoli"],["resoconto","Resoconto"]].map(([k,n])=>`<button class="${k==mt?"on":""}" onclick="mt='${k}';render()">${n}</button>`).join("")}</div>`+({vendita:vSell,articoli:vItems,resoconto:vReport})[mt]();
+}
+
 /* ---------- NAVIGAZIONE ---------- */
 function go(t){tab=t;render();scrollTo(0,0)}
-function add(){({date:()=>gigSheet(),rep:()=>songSheet()})[tab]?.()}
+function add(){({date:()=>gigSheet(),rep:()=>songSheet(),merch:()=>mt=="articoli"&&itemSheet()})[tab]?.()}
 function render(){
  if(sheetOpen){pend=true;return}pend=false;
+ if(seller()){$("#nav").innerHTML="";$("#fab").style.display="none";$("#app").innerHTML=`<div class="hd"><img src="${LOGO}" alt=""><div><div class="bn">Banchetto</div><span class="mu">Aironi Bianchi</span></div></div>`+vSell()+`<button class="g" onclick="firebase.auth().signOut()">Esci</button><p class="mu">Accesso come venditore: <b>${E(me.name)}</b></p>`;return}
  $("#nav").innerHTML=TABS.map(([k,n])=>`<button class="${k==tab?"on":""}" onclick="go('${k}')">${n}</button>`).join("");
- $("#fab").style.display=me&&(tab=="date"||tab=="rep")?"block":"none";
- const f={home:vHome,date:vDate,set:vSet,rep:vRep,cas:vCas}[tab];
+ $("#fab").style.display=me&&(tab=="date"||tab=="rep"||(tab=="merch"&&mt=="articoli"))?"block":"none";
+ const f={home:vHome,date:vDate,set:vSet,rep:vRep,cas:vCas,merch:vMerch}[tab];
  $("#app").innerHTML=(tab=="home"?"":`<h1>${TABS.find(t=>t[0]==tab)[1]}</h1>`)+f();
 }
 
 /* ---------- ACCESSO ---------- */
 function loginScreen(msg){
- UNS.forEach(f=>f());UNS=[];$("#nav").innerHTML="";$("#fab").style.display="none";closeSheet();
+ UNS.forEach(f=>f());UNS=[];S={gigs:[],songs:[],users:[],merch:[],sales:[]};sel=null;SL=[];lastSale=null;gift=false;tab="home";$("#nav").innerHTML="";$("#fab").style.display="none";closeSheet();
  $("#app").innerHTML=`<div class="login"><img src="${LOGO}" alt="Aironi Bianchi"><label>Nome utente<input id="lu" autocapitalize="none" autocomplete="username"></label><label>Password<input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"></label><div class="err" id="le">${E(msg||"")}</div><button onclick="login()" style="width:100%">Entra</button>
  <p class="mu" style="margin-top:28px">Primo avvio? <a href="#" onclick="firstAdmin();return false">Crea l'account amministratore</a></p></div>`;
 }
@@ -266,7 +344,7 @@ async function firstAdmin(){
 }
 function listen(){
  UNS.forEach(f=>f());UNS=[];
- ["gigs","songs","users"].forEach(k=>UNS.push(db.collection(k).onSnapshot(s=>{S[k]=s.docs.map(d=>({...d.data(),id:d.id}));render()},e=>{if(e.code=="permission-denied")loginScreen("Il tuo accesso è stato tolto o non è attivo. Chiedi all'amministratore.");})));
+ (seller()?["merch","sales"]:["gigs","songs","users","merch","sales"]).forEach(k=>UNS.push(db.collection(k).onSnapshot(s=>{S[k]=s.docs.map(d=>({...d.data(),id:d.id}));render()},e=>{if(e.code=="permission-denied")loginScreen("Il tuo accesso è stato tolto o non è attivo. Chiedi all'amministratore.");})));
 }
 (()=>{
  if(typeof firebase=="undefined")return $("#app").innerHTML=`<div class="login"><img src="${LOGO}" alt=""><p>Serve la connessione a internet.</p><button onclick="location.reload()">Riprova</button></div>`;
@@ -275,8 +353,8 @@ function listen(){
  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
  firebase.auth().onAuthStateChanged(async u=>{
   if(!u){me=null;admin=false;return loginScreen()}
-  const name=(u.email||"").split("@")[0];admin=name==ADMIN_USER.toLowerCase();me={uid:u.uid,name};
-  if(!admin){try{const d=await db.collection("users").doc(u.uid).get();if(!d.exists)throw 0}catch(e){await firebase.auth().signOut();return loginScreen("Il tuo accesso è stato tolto. Chiedi all'amministratore.")}}
+  const name=(u.email||"").split("@")[0];admin=name==ADMIN_USER.toLowerCase();me={uid:u.uid,name,role:admin?"admin":"membro"};
+  if(!admin){try{const d=await db.collection("users").doc(u.uid).get();if(!d.exists)throw 0;me.role=d.data().role||"membro"}catch(e){await firebase.auth().signOut();return loginScreen("Il tuo accesso è stato tolto. Chiedi all'amministratore.")}}
   listen();render();
  });
 })();
