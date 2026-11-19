@@ -115,7 +115,7 @@ function vHome(){
    :`<div class="hero"><span class="mu">Nessuna data in programma</span></div>`;
  h+=`<div class="tiles"><div class="tile" onclick="go('date')"><div class="n">${up.length}</div><span class="mu">date in arrivo</span></div><div class="tile" onclick="go('date')"><div class="n ${unsigned?"wn":""}">${unsigned}</div><span class="mu">contratti da firmare</span></div><div class="tile" onclick="go('cas')"><div class="n ${due?"wn":""}" style="font-size:17px;line-height:33px">${eur(due).replace(",00","")}</div><span class="mu">da incassare</span></div></div>`;
  if(up.length>1)h+=`<div class="card"><b>Prossime date</b>${up.slice(1,5).map(x=>`<div class="rw"><span>${E(x.place)}</span><span class="mu">${sd(x.date)}</span></div>`).join("")}</div>`;
- h+=admin?`<button class="g" onclick="usersSheet()">Gestisci utenti</button>`:"";
+ h+=admin?`<button class="g" onclick="usersSheet()">Gestisci utenti</button><button class="g" onclick="backup()">Scarica backup</button><button class="g" onclick="restorePick()">Ripristina backup</button>`:"";
  h+=`<button class="g" onclick="pwdSheet()">Cambia password</button><button class="g" onclick="firebase.auth().signOut()">Esci</button><p class="mu">Accesso come <b>${E(me?.name||"")}</b>${admin?" (amministratore)":""}</p>`;
  return h;
 }
@@ -190,9 +190,7 @@ async function pdf(){
  d.setFont("helvetica","normal");d.setFontSize(16*k);d.text(fd(g.date),w/2,64*k,{align:"center"});
  const top=78*k,lh=Math.min(15*k,(H-top-10*k)/L.length),fs=Math.min(28*k,lh/0.5);
  L.forEach((x,j)=>{const y=top+j*lh;if(x.h){d.setFont("helvetica","normal");d.setFontSize(fs*.6);d.setTextColor(120,120,120);d.text(x.h,18*k,y)}else{d.setFont("helvetica","bold");d.setFontSize(fs);x.ac?d.setTextColor(200,0,0):d.setTextColor(0,0,0);d.text(x.t,18*k,y,{maxWidth:w-36*k})}});
- const name=`Scaletta ${g.place} ${g.date}.pdf`.replace(/[\\/:*?"<>|]/g,""),bl=d.output("blob");
- try{const fi=new File([bl],name,{type:"application/pdf"});if(navigator.canShare&&navigator.canShare({files:[fi]})){await navigator.share({files:[fi],title:name});return}}catch(e){if(e.name=="AbortError")return}
- const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000);toast("PDF scaricato");
+ saveBlob(`Scaletta ${g.place} ${g.date}.pdf`.replace(/[\\/:*?"<>|]/g,""),d.output("blob"));
 }
 
 /* ---------- CACHET ---------- */
@@ -212,19 +210,45 @@ function casSheet(id){
 }
 function saveCas(id){const x=S.gigs.find(g=>g.id==id),n=i=>+v(i).replace(",",".")||0;save("gigs",{...x,fee:n("f1"),mgr:n("f2"),sal:n("f3"),sa:n("f4"),sl:n("f5"),paid:$("#f6").checked})}
 
+/* ---------- PASSWORD ---------- */
+const PWD=[[p=>p.length>=8,"almeno 8 caratteri"],[p=>/[A-Z]/.test(p),"una lettera maiuscola"],[p=>/[a-z]/.test(p),"una lettera minuscola"],[p=>/[0-9]/.test(p),"un numero"],[p=>/[^A-Za-z0-9]/.test(p),"un carattere speciale (es. ! ? @ # . -)"]];
+const pwdMissing=p=>PWD.filter(([f])=>!f(p)).map(([,t])=>t);
+const pwdList=p=>PWD.map(([f,t])=>`<div class="${f(p)?"ok":"mu"}" style="font-size:14px">${f(p)?"✓":"•"} ${t}</div>`).join("");
+function pwdHint(id,out){$("#"+out).innerHTML=pwdList($("#"+id).value)}
+const authMsg=e=>e.code=="auth/password-does-not-meet-requirements"?"La password non rispetta i requisiti di sicurezza.":e.code=="auth/too-many-requests"?"Troppi tentativi: riprova tra qualche minuto.":e.code=="auth/network-request-failed"?"Nessuna connessione.":"Errore: "+(e.message||e);
+
+/* ---------- BACKUP ---------- */
+async function saveBlob(name,bl){
+ try{const fi=new File([bl],name,{type:bl.type});if(navigator.canShare&&navigator.canShare({files:[fi]})){await navigator.share({files:[fi],title:name});return}}catch(e){if(e.name=="AbortError")return}
+ const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000);toast("File scaricato");
+}
+function backup(){
+ const d={app:"aironi-bianchi",created:new Date().toISOString(),gigs:S.gigs,songs:S.songs,merch:S.merch,sales:S.sales,users:S.users};
+ saveBlob(`backup-aironi-${today()}.json`,new Blob([JSON.stringify(d,null,1)],{type:"application/json"}));
+}
+function restorePick(){const i=document.createElement("input");i.type="file";i.accept=".json,application/json";i.onchange=()=>restore(i.files[0]);i.click()}
+async function restore(f){
+ if(!f)return;let d;try{d=JSON.parse(await f.text())}catch(e){return alert("Il file non è un backup valido.")}
+ if(!d||d.app!="aironi-bianchi")return alert("Questo file non è un backup dell'app Aironi Bianchi.");
+ const cols=["gigs","songs","merch","sales"],ops=[];cols.forEach(k=>(Array.isArray(d[k])?d[k]:[]).forEach(o=>{if(o&&o.id)ops.push([k,o])}));
+ if(!confirm(`Ripristinare il backup del ${new Date(d.created).toLocaleString("it-IT")}?\n\n${ops.length} elementi (date, brani, articoli, vendite) torneranno come nel backup. Quelli creati dopo il backup restano. Gli utenti non vengono toccati.`))return;
+ try{for(let i=0;i<ops.length;i+=400){const b=db.batch();ops.slice(i,i+400).forEach(([k,o])=>b.set(db.collection(k).doc(String(o.id)),o));await b.commit()}toast(`Ripristinati ${ops.length} elementi ✓`)}
+ catch(e){alert("Ripristino non riuscito: "+(e.message||e))}
+}
+
 /* ---------- UTENTI ---------- */
 const mail=u=>u.toLowerCase()+"@"+DOM;
 function usersSheet(){
  openSheet(`<h2>Utenti</h2><p class="mu"><b>Membro</b>: inserisce, modifica ed elimina date, brani, scalette, cachet e merchandising. <b>Venditore</b>: vede solo la pagina di vendita del banchetto. Solo tu gestisci gli utenti.</p>
  ${S.users.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>`<div class="rw"><span>${E(u.username)} <span class="tag">${u.role=="venditore"?"Venditore":"Membro"}</span></span><button class="g s" onclick="delUser('${u.id}','${E(u.username)}')">Togli accesso</button></div>`).join("")||`<p class="mu">Nessun utente.</p>`}
- <h2 style="margin-top:16px">Nuovo utente</h2><label>Nome utente<input id="nu" autocapitalize="none" autocomplete="off" placeholder="es. marco"></label><label>Password (almeno 6 caratteri)<input id="np" type="text" autocomplete="off"></label><label>Ruolo<select id="nr"><option value="membro">Membro della band</option><option value="venditore">Venditore (solo banchetto)</option></select></label>
+ <h2 style="margin-top:16px">Nuovo utente</h2><label>Nome utente<input id="nu" autocapitalize="none" autocomplete="off" placeholder="es. marco"></label><label>Password<input id="np" type="text" autocomplete="off" oninput="pwdHint('np','nph')"></label><div id="nph" style="margin:-4px 0 8px">${pwdList("")}</div><label>Ruolo<select id="nr"><option value="membro">Membro della band</option><option value="venditore">Venditore (solo banchetto)</option></select></label>
  <div class="err" id="ue"></div><button onclick="addUser()">Crea utente</button>`);
 }
 async function addUser(){
  const u=v("nu").toLowerCase(),p=v("np"),err=m=>$("#ue").textContent=m;
  if(!/^[a-z0-9._-]{3,20}$/.test(u))return err("Nome utente: 3-20 caratteri, solo lettere, numeri, punto, trattino.");
  if(u==ADMIN_USER.toLowerCase())return err("Questo nome è dell'amministratore.");
- if(p.length<6)return err("La password deve avere almeno 6 caratteri.");
+ const miss=pwdMissing(p);if(miss.length)return err("La password deve contenere: "+miss.join(", ")+".");
  try{
   const sec=firebase.apps.find(a=>a.name=="sec")||firebase.initializeApp(firebaseConfig,"sec");
   await sec.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
@@ -233,15 +257,15 @@ async function addUser(){
   await sec.auth().signOut();
   if(!S.users.some(x=>x.id==c.user.uid))S.users.push({id:c.user.uid,username:u,role:v("nr")||"membro"});
   toast("Utente creato ✓");usersSheet();
- }catch(e){err(e.code=="auth/email-already-in-use"?"Questo nome utente è già stato usato: scegline un altro.":"Errore: "+(e.message||e))}
+ }catch(e){err(e.code=="auth/email-already-in-use"?"Questo nome utente è già stato usato: scegline un altro.":authMsg(e))}
 }
 async function delUser(id,name){if(!confirm(`Togliere l'accesso a ${name}?`))return;try{await db.collection("users").doc(id).delete();toast("Accesso tolto");usersSheet()}catch(e){alert(e.message||e)}}
-function pwdSheet(){openSheet(`<h2>Cambia password</h2><label>Nuova password (almeno 6 caratteri)<input id="p1" type="password"></label><label>Ripeti<input id="p2" type="password"></label><div class="err" id="pe"></div><button onclick="chPwd()">Salva</button>`)}
+function pwdSheet(){openSheet(`<h2>Cambia password</h2><label>Nuova password<input id="p1" type="password" oninput="pwdHint('p1','p1h')"></label><div id="p1h" style="margin:-4px 0 8px">${pwdList("")}</div><label>Ripeti<input id="p2" type="password"></label><div class="err" id="pe"></div><button onclick="chPwd()">Salva</button>`)}
 async function chPwd(){
  const a=v("p1"),b=v("p2"),err=m=>$("#pe").textContent=m;
- if(a.length<6)return err("Almeno 6 caratteri.");if(a!=b)return err("Le due password non coincidono.");
+ const miss=pwdMissing(a);if(miss.length)return err("Manca: "+miss.join(", ")+".");if(a!=b)return err("Le due password non coincidono.");
  try{await firebase.auth().currentUser.updatePassword(a);closeSheet();toast("Password cambiata ✓")}
- catch(e){err(e.code=="auth/requires-recent-login"?"Per sicurezza esci, rientra e riprova subito.":"Errore: "+(e.message||e))}
+ catch(e){err(e.code=="auth/requires-recent-login"?"Per sicurezza esci, rientra e riprova subito.":authMsg(e))}
 }
 
 /* ---------- MERCH ---------- */
@@ -332,21 +356,13 @@ function render(){
 /* ---------- ACCESSO ---------- */
 function loginScreen(msg){
  UNS.forEach(f=>f());UNS=[];S={gigs:[],songs:[],users:[],merch:[],sales:[]};sel=null;SL=[];lastSale=null;gift=false;tab="home";$("#nav").innerHTML="";$("#fab").style.display="none";closeSheet();
- $("#app").innerHTML=`<div class="login"><img src="${LOGO}" alt="Aironi Bianchi"><label>Nome utente<input id="lu" autocapitalize="none" autocomplete="username"></label><label>Password<input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"></label><div class="err" id="le">${E(msg||"")}</div><button onclick="login()" style="width:100%">Entra</button>
- <p class="mu" style="margin-top:28px">Primo avvio? <a href="#" onclick="firstAdmin();return false">Crea l'account amministratore</a></p></div>`;
+ $("#app").innerHTML=`<div class="login"><img src="${LOGO}" alt="Aironi Bianchi"><label>Nome utente<input id="lu" autocapitalize="none" autocomplete="username"></label><label>Password<input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"></label><div class="err" id="le">${E(msg||"")}</div><button onclick="login()" style="width:100%">Entra</button></div>`;
 }
 async function login(){
  const u=v("lu").toLowerCase(),p=$("#lp").value;if(!u||!p)return $("#le").textContent="Inserisci nome utente e password.";
  $("#le").textContent="Accesso…";
  try{await firebase.auth().signInWithEmailAndPassword(mail(u),p)}
- catch(e){$("#le").textContent=e.code=="auth/too-many-requests"?"Troppi tentativi: riprova tra qualche minuto.":e.code=="auth/network-request-failed"?"Nessuna connessione.":"Nome utente o password errati."}
-}
-async function firstAdmin(){
- const u=v("lu").toLowerCase(),p=$("#lp").value,err=m=>$("#le").textContent=m;
- if(u!=ADMIN_USER.toLowerCase())return err(`Scrivi «${ADMIN_USER}» come nome utente e scegli una password, poi tocca di nuovo il link.`);
- if(p.length<6)return err("Scegli una password di almeno 6 caratteri.");
- try{await firebase.auth().createUserWithEmailAndPassword(mail(u),p)}
- catch(e){err(e.code=="auth/email-already-in-use"?"L'account amministratore esiste già: usa Entra.":"Errore: "+(e.message||e))}
+ catch(e){$("#le").textContent=["auth/too-many-requests","auth/network-request-failed","auth/password-does-not-meet-requirements"].includes(e.code)?authMsg(e):"Nome utente o password errati."}
 }
 function listen(){
  UNS.forEach(f=>f());UNS=[];
