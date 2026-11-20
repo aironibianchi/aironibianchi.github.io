@@ -79,7 +79,6 @@ const firebaseConfig = {
   messagingSenderId: "682834173632",
   appId: "1:682834173632:web:a2c5950c682f4098955725"
 };
-const ADMIN_USER = "fiore80";
 const DOM = "aironi-bianchi.app";   // dominio interno dei nomi utente, non serve a nient'altro
 const MEMBRI = 5;
 /* ================================================== */
@@ -240,14 +239,13 @@ async function restore(f){
 const mail=u=>u.toLowerCase()+"@"+DOM;
 function usersSheet(){
  openSheet(`<h2>Utenti</h2><p class="mu"><b>Membro</b>: inserisce, modifica ed elimina date, brani, scalette, cachet e merchandising. <b>Venditore</b>: vede solo la pagina di vendita del banchetto. Solo tu gestisci gli utenti.</p>
- ${S.users.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>`<div class="rw"><span>${E(u.username)} <span class="tag">${u.role=="venditore"?"Venditore":"Membro"}</span></span><button class="g s" onclick="delUser('${u.id}','${E(u.username)}')">Togli accesso</button></div>`).join("")||`<p class="mu">Nessun utente.</p>`}
+ ${S.users.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>`<div class="rw"><span>${E(u.username)} <span class="tag">${u.role=="admin"?"Amministratore":u.role=="venditore"?"Venditore":"Membro"}</span></span>${u.role=="admin"?"":`<button class="g s" onclick="delUser('${u.id}','${E(u.username)}')">Togli accesso</button>`}</div>`).join("")||`<p class="mu">Nessun utente.</p>`}
  <h2 style="margin-top:16px">Nuovo utente</h2><label>Nome utente<input id="nu" autocapitalize="none" autocomplete="off" placeholder="es. marco"></label><label>Password<input id="np" type="text" autocomplete="off" oninput="pwdHint('np','nph')"></label><div id="nph" style="margin:-4px 0 8px">${pwdList("")}</div><label>Ruolo<select id="nr"><option value="membro">Membro della band</option><option value="venditore">Venditore (solo banchetto)</option></select></label>
  <div class="err" id="ue"></div><button onclick="addUser()">Crea utente</button>`);
 }
 async function addUser(){
  const u=v("nu").toLowerCase(),p=v("np"),err=m=>$("#ue").textContent=m;
  if(!/^[a-z0-9._-]{3,20}$/.test(u))return err("Nome utente: 3-20 caratteri, solo lettere, numeri, punto, trattino.");
- if(u==ADMIN_USER.toLowerCase())return err("Questo nome è dell'amministratore.");
  const miss=pwdMissing(p);if(miss.length)return err("La password deve contenere: "+miss.join(", ")+".");
  try{
   const sec=firebase.apps.find(a=>a.name=="sec")||firebase.initializeApp(firebaseConfig,"sec");
@@ -259,7 +257,7 @@ async function addUser(){
   toast("Utente creato ✓");usersSheet();
  }catch(e){err(e.code=="auth/email-already-in-use"?"Questo nome utente è già stato usato: scegline un altro.":authMsg(e))}
 }
-async function delUser(id,name){if(!confirm(`Togliere l'accesso a ${name}?`))return;try{await db.collection("users").doc(id).delete();toast("Accesso tolto");usersSheet()}catch(e){alert(e.message||e)}}
+async function delUser(id,name){const t=S.users.find(x=>x.id==id);if(id==me?.uid||t?.role=="admin")return alert("Non puoi togliere l'accesso a un amministratore dall'app.");if(!confirm(`Togliere l'accesso a ${name}?`))return;try{await db.collection("users").doc(id).delete();toast("Accesso tolto");usersSheet()}catch(e){alert(e.message||e)}}
 function pwdSheet(){openSheet(`<h2>Cambia password</h2><label>Nuova password<input id="p1" type="password" oninput="pwdHint('p1','p1h')"></label><div id="p1h" style="margin:-4px 0 8px">${pwdList("")}</div><label>Ripeti<input id="p2" type="password"></label><div class="err" id="pe"></div><button onclick="chPwd()">Salva</button>`)}
 async function chPwd(){
  const a=v("p1"),b=v("p2"),err=m=>$("#pe").textContent=m;
@@ -375,8 +373,8 @@ function listen(){
  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
  firebase.auth().onAuthStateChanged(async u=>{
   if(!u){me=null;admin=false;return loginScreen()}
-  const name=(u.email||"").split("@")[0];admin=name==ADMIN_USER.toLowerCase();me={uid:u.uid,name,role:admin?"admin":"membro"};
-  if(!admin){try{const d=await db.collection("users").doc(u.uid).get();if(!d.exists)throw 0;me.role=d.data().role||"membro"}catch(e){await firebase.auth().signOut();return loginScreen("Il tuo accesso è stato tolto. Chiedi all'amministratore.")}}
+  const name=(u.email||"").split("@")[0];admin=false;me={uid:u.uid,name,role:"membro"};
+  try{const d=await db.collection("users").doc(u.uid).get();if(!d.exists)throw 0;me.role=d.data().role||"membro";admin=me.role=="admin"}catch(e){await firebase.auth().signOut();return loginScreen("Il tuo accesso è stato tolto. Chiedi all'amministratore.")}
   listen();render();
  });
 })();
